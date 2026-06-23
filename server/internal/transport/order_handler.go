@@ -21,12 +21,16 @@ func NewOrderHandler(s service.OrderService) *OrderHandler {
 }
 
 func (h *OrderHandler) OrderRegisterRoutes(authorized *gin.RouterGroup, unauthorized *gin.RouterGroup) {
-	orders := unauthorized.Group("/orders")
+	
+	publicOrders := unauthorized.Group("/orders")
 	{
-		orders.GET("", h.List)
-		orders.GET("/:id", h.Get)
-		orders.POST("", h.Create)
-		orders.DELETE("/:id", h.Delete)
+		publicOrders.POST("", h.Create)
+	}
+	protectedOrders := authorized.Group("/orders")
+	{
+		protectedOrders.GET("", h.List)
+		protectedOrders.GET("/:id", h.Get)
+		protectedOrders.DELETE("/:id", h.Delete)
 	}
 
 }

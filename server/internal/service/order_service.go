@@ -39,7 +39,6 @@ func (s *orderService) Get(id uint) (*models.Order, error) {
 }
 
 func (s *orderService) Create(input *models.OrderCreate) (*models.Order, error) {
-
 	var result *models.Order
 
 	err := s.repo.Transaction(func(r repository.OrderRepository) error {
@@ -75,6 +74,7 @@ func (s *orderService) Create(input *models.OrderCreate) (*models.Order, error) 
 
 	return result, nil
 }
+
 func validateOrderInput(input *models.OrderCreate) error {
 	if len(input.Items) == 0 {
 		return errors.New("order must contain at least one item")

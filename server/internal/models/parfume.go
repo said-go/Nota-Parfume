@@ -25,7 +25,6 @@ type ParfumeCreate struct {
 	Notes            []string `json:"notes"`
 	PricePerMl       int64    `json:"price_per_ml" binding:"required"`
 	AvailableVolumes []uint   `json:"available_volumes" binding:"required"`
-	ImageUrl         string   `json:"image_url"`
 	IsActive         *bool    `json:"is_active"`
 	Badge            string   `json:"badge"`
 }

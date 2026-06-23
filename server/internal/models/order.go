@@ -11,7 +11,7 @@ type Order struct {
 	DeliveryAddress string      `json:"delivery_address"`
 	Status          string      `json:"status" gorm:"not null;default:'new'"` // new, confirmed, assembling, shipped, completed, cancelled
 	Comment         string      `json:"comment"`
-	TotalPrice      int64        `json:"total_price" gorm:"not null;default:0"`
+	TotalPrice      int64       `json:"total_price" gorm:"not null;default:0"`
 	Items           []OrderItem `json:"items" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
@@ -23,6 +23,6 @@ type OrderCreate struct {
 	DeliveryAddress string      `json:"delivery_address" binding:"required"`
 	Status          string      `json:"status" binding:"required" ` // new, confirmed, assembling, shipped, completed, cancelled
 	Comment         string      `json:"comment" binding:"required"`
-	TotalPrice      int64        `json:"total_price" binding:"required"`
+	TotalPrice      int64       `json:"total_price" binding:"required"`
 	Items           []OrderItem `json:"items" binding:"required"`
 }

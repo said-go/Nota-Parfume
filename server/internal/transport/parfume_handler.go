@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -10,8 +11,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
-
-
 
 type ParfumeHandler struct {
 	service service.ParfumeService
@@ -25,47 +24,116 @@ func NewParfumeHandler(service service.ParfumeService) *ParfumeHandler {
 
 // parfumeHandler := transport.NewParfumeHandler(parfumeService)
 func (h *ParfumeHandler) ParfumeRegisterRoutes(authorized *gin.RouterGroup, unauthorized *gin.RouterGroup) {
-
-	parfumes := unauthorized.Group("/parfumes")
+	publicParfumes := unauthorized.Group("/parfumes")
 	{
-		parfumes.POST("", h.Create)
-		parfumes.GET("", h.GetAll)
-		parfumes.GET("/:id", h.GetByID)
-		parfumes.PUT("/:id", h.Update)
-		parfumes.DELETE("/:id", h.Delete)
+		publicParfumes.GET("/:id", h.GetByID)
+		publicParfumes.GET("", h.GetAll)
+	}
+
+	protectedParfumes := unauthorized.Group("/parfumes")
+	{
+		protectedParfumes.POST("", h.Create)
+		protectedParfumes.PUT("/:id", h.Update)
+		protectedParfumes.DELETE("/:id", h.Delete)
 	}
 
 }
 
 // POST /parfumes
-
 func (h *ParfumeHandler) Create(c *gin.Context) {
 
-	var input models.ParfumeCreate
+	var req models.ParfumeCreate
 
-	if err := c.ShouldBindJSON(&input); err != nil {
+	req.Name = c.PostForm("name")
+	req.Description = c.PostForm("description")
+	req.Brand = c.PostForm("brand")
+	req.Category = c.PostForm("category")
+	req.Badge = c.PostForm("badge")
 
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid request body",
-		})
-
-		return
-	}
-
-	parfume, err := h.service.Create(&input)
+	// PricePerMl
+	price, err := strconv.ParseInt(
+		c.PostForm("price_per_ml"),
+		10,
+		64,
+	)
 
 	if err != nil {
-
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "internal server error",
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid price_per_ml",
 		})
-
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"parfume": parfume,
-	})
+	req.PricePerMl = price
+
+	// Notes
+	if err := json.Unmarshal(
+		[]byte(c.PostForm("notes")),
+		&req.Notes,
+	); err != nil {
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid notes format",
+		})
+		return
+	}
+
+	// AvailableVolumes
+	if err := json.Unmarshal(
+		[]byte(c.PostForm("available_volumes")),
+		&req.AvailableVolumes,
+	); err != nil {
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid available_volumes format",
+		})
+		return
+	}
+
+	// IsActive
+	isActive := c.PostForm("is_active")
+
+	if isActive != "" {
+
+		value, err := strconv.ParseBool(isActive)
+
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "invalid is_active",
+			})
+			return
+		}
+
+		req.IsActive = &value
+	}
+
+	// Image
+	var imageUrl string
+
+	file, err := c.FormFile("image")
+
+	if err == nil {
+
+		imageUrl, err = h.service.UploadImage(file)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+	}
+
+	parfume, err := h.service.Create(&req, imageUrl)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, parfume)
 }
 
 // GET /parfumes/:id

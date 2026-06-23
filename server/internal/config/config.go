@@ -3,54 +3,32 @@ package config
 import (
 	"fmt"
 	"os"
+
+	"github.com/joho/godotenv"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
-type Config struct {
-	DatabaseURL string
-	DBHost      string
-	DBPort      string
-	DBUser      string
-	DBPassword  string
-	DBName      string
-	DBSSLMode   string
-	AppPort     string
-}
-
-func Load() Config {
-	return Config{
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		DBHost:      getEnv("DB_HOST", "localhost"),
-		DBPort:      getEnv("DB_PORT", "5432"),
-		DBUser:      getEnv("DB_USER", "postgres"),
-		DBPassword:  os.Getenv("DB_PASSWORD"),
-		DBName:      getEnv("DB_NAME", "nota_parfume"),
-		DBSSLMode:   getEnv("DB_SSLMODE", "disable"),
-		AppPort:     getEnv("APP_PORT", "8080"),
+func SetUpDatabaseConnection() *gorm.DB {
+	if err := godotenv.Load(".env"); err != nil {
+		panic(err)
 	}
-}
 
-func (c Config) DSN() string {
-	if c.DatabaseURL != "" {
-		return c.DatabaseURL
+	dbUser := os.Getenv("DB_USER")
+	dbPass := os.Getenv("DB_PASS")
+	dbHost := os.Getenv("DB_HOST")
+	dbName := os.Getenv("DB_NAME")
+	dbPort := os.Getenv("DB_PORT")
+
+	dsn := fmt.Sprintf("host=%v user=%v password=%v dbname=%v port=%v", dbHost, dbUser, dbPass, dbName, dbPort)
+
+	db, err := gorm.Open(postgres.New(postgres.Config{
+		DSN:                  dsn,
+		PreferSimpleProtocol: true,
+	}), &gorm.Config{})
+
+	if err != nil {
+		panic(err)
 	}
-	return fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		c.DBHost,
-		c.DBPort,
-		c.DBUser,
-		c.DBPassword,
-		c.DBName,
-		c.DBSSLMode,
-	)
-}
-
-func (c Config) AppAddress() string {
-	return fmt.Sprintf(":%s", c.AppPort)
-}
-
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
+	return db
 }
