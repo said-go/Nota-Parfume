@@ -3,12 +3,13 @@ package repository
 import (
 	"errors"
 	"nota-parfume/internal/models"
+	"strings"
 
 	"gorm.io/gorm"
 )
 
 type ParfumeRepository interface {
-	GetAll(limit, offset int) ([]models.Parfume, error)
+	GetAll(filter models.ParfumeFilter, limit int, offset int) ([]models.Parfume, int64, error)
 	GetByID(id uint) (*models.Parfume, error)
 	Create(parfume *models.Parfume) error
 	Update(parfume *models.Parfume) error
@@ -25,24 +26,42 @@ func NewParfumeRepository(db *gorm.DB) ParfumeRepository {
 	}
 }
 
-
-func (r *parfumeRepository) GetAll(limit, offset int) ([]models.Parfume, error) {
+func (r *parfumeRepository) GetAll(
+	filter models.ParfumeFilter,
+	limit int,
+	offset int,
+) ([]models.Parfume, int64, error) {
 
 	var parfumes []models.Parfume
 
-	err := r.db.
-		Limit(limit).
-		Offset(offset).
-		Find(&parfumes).
-		Error
+	query := r.db.Model(&models.Parfume{})
 
-	if err != nil {
-		return nil, err
+	if filter.Brand != "" {
+		query = query.Where("brand = ?", filter.Brand)
 	}
 
-	return parfumes, nil
-}
+	if filter.Category != "" {
+		query = query.Where("category = ?", filter.Category)
+	}
 
+	if filter.Search != "" {
+		query = query.Where("LOWER(name) LIKE ?", "%"+strings.ToLower(filter.Search)+"%")
+	}
+
+	var total int64
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	query = query.Limit(limit).Offset(offset)
+
+	if err := query.Find(&parfumes).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return parfumes, total, nil
+}
 
 func (r *parfumeRepository) GetByID(id uint) (*models.Parfume, error) {
 
@@ -61,10 +80,8 @@ func (r *parfumeRepository) GetByID(id uint) (*models.Parfume, error) {
 		return nil, err
 	}
 
-
 	return &parfume, nil
 }
-
 
 func (r *parfumeRepository) Create(parfume *models.Parfume) error {
 
@@ -73,46 +90,36 @@ func (r *parfumeRepository) Create(parfume *models.Parfume) error {
 		Error
 }
 
-
 func (r *parfumeRepository) Update(parfume *models.Parfume) error {
-
 
 	result := r.db.
 		Model(&models.Parfume{}).
 		Where("id = ?", parfume.ID).
 		Updates(parfume)
 
-
 	if result.Error != nil {
 		return result.Error
 	}
 
-
 	if result.RowsAffected == 0 {
 		return ErrNotFound
 	}
-
 
 	return nil
 }
 
-
 func (r *parfumeRepository) Delete(id uint) error {
-
 
 	result := r.db.
 		Delete(&models.Parfume{}, id)
-
 
 	if result.Error != nil {
 		return result.Error
 	}
 
-
 	if result.RowsAffected == 0 {
 		return ErrNotFound
 	}
-
 
 	return nil
 }

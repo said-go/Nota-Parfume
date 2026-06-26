@@ -1,7 +1,6 @@
 package service
 
 import (
-	"errors"
 	"fmt"
 
 	"nota-parfume/internal/models"
@@ -9,7 +8,7 @@ import (
 )
 
 type OrderService interface {
-	List() ([]models.Order, error)
+	List(page, limit int) ([]models.Order, int64, error)
 	Get(id uint) (*models.Order, error)
 	Create(input *models.OrderCreate) (*models.Order, error)
 	Delete(id uint) error
@@ -30,8 +29,11 @@ func NewOrderService(
 	}
 }
 
-func (s *orderService) List() ([]models.Order, error) {
-	return s.repo.GetAll()
+func (s *orderService) List(page, limit int) ([]models.Order, int64, error) {
+
+	offset := (page - 1) * limit
+
+	return s.repo.GetAll(limit, offset)
 }
 
 func (s *orderService) Get(id uint) (*models.Order, error) {
@@ -39,19 +41,18 @@ func (s *orderService) Get(id uint) (*models.Order, error) {
 }
 
 func (s *orderService) Create(input *models.OrderCreate) (*models.Order, error) {
-	var result *models.Order
 
-	err := s.repo.Transaction(func(r repository.OrderRepository) error {
+	order := buildOrder(input)
 
-		order := buildOrder(input)
+	items, total, err := s.buildOrderItems(input.Items)
+	if err != nil {
+		return nil, err
+	}
 
-		items, total, err := s.buildOrderItems(input.Items)
-		if err != nil {
-			return err
-		}
+	order.Items = items
+	order.TotalPrice = total
 
-		order.TotalPrice = total
-		order.Items = items
+	err = s.repo.Transaction(func(r repository.OrderRepository) error {
 
 		if err := r.Create(order); err != nil {
 			return err
@@ -59,12 +60,11 @@ func (s *orderService) Create(input *models.OrderCreate) (*models.Order, error) 
 
 		for i := range items {
 			items[i].OrderID = order.ID
-			if err := r.CreateOrderItem(items[i]); err != nil {
+			if err := r.CreateOrderItem(&items[i]); err != nil {
 				return err
 			}
 		}
 
-		result = order
 		return nil
 	})
 
@@ -72,24 +72,7 @@ func (s *orderService) Create(input *models.OrderCreate) (*models.Order, error) 
 		return nil, err
 	}
 
-	return result, nil
-}
-
-func validateOrderInput(input *models.OrderCreate) error {
-	if len(input.Items) == 0 {
-		return errors.New("order must contain at least one item")
-	}
-
-	for _, item := range input.Items {
-		if item.Quantity <= 0 {
-			return errors.New("item quantity must be greater than 0")
-		}
-		if item.VolumeMl <= 0 {
-			return errors.New("item volume must be greater than 0")
-		}
-	}
-
-	return nil
+	return order, nil
 }
 
 func buildOrder(input *models.OrderCreate) *models.Order {
@@ -105,13 +88,16 @@ func buildOrder(input *models.OrderCreate) *models.Order {
 }
 
 func (s *orderService) buildOrderItems(
-	inputItems []models.OrderItem,
+	inputItems []models.OrderItemCreate,
 ) ([]models.OrderItem, int64, error) {
 
-	items := make([]models.OrderItem, 0, len(inputItems))
-	var total int64
+	var (
+		items []models.OrderItem
+		total int64
+	)
 
 	for _, in := range inputItems {
+
 		parfume, err := s.parfumeRepo.GetByID(in.ParfumeID)
 		if err != nil {
 			return nil, 0, err
@@ -120,13 +106,15 @@ func (s *orderService) buildOrderItems(
 			return nil, 0, fmt.Errorf("parfume %d not found", in.ParfumeID)
 		}
 
-		itemTotal := parfume.PricePerMl * int64(in.VolumeMl) * int64(in.Quantity)
+		unitPrice := parfume.PricePerMl * int64(in.VolumeMl)
+		itemTotal := unitPrice * int64(in.Quantity)
 
 		items = append(items, models.OrderItem{
 			ParfumeID:  parfume.ID,
 			VolumeMl:   in.VolumeMl,
 			Quantity:   in.Quantity,
 			PricePerMl: parfume.PricePerMl,
+			UnitPrice:  unitPrice,
 			TotalPrice: itemTotal,
 		})
 
@@ -134,17 +122,6 @@ func (s *orderService) buildOrderItems(
 	}
 
 	return items, total, nil
-}
-
-func (s *orderService) createOrderItems(orderID uint, items []models.OrderItem) error {
-	for _, item := range items {
-		item.OrderID = orderID
-
-		if err := s.repo.CreateOrderItem(item); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (s *orderService) Delete(id uint) error {

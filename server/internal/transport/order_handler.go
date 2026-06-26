@@ -15,28 +15,22 @@ type OrderHandler struct {
 }
 
 func NewOrderHandler(s service.OrderService) *OrderHandler {
-	return &OrderHandler{
-		service: s,
-	}
+	return &OrderHandler{service: s}
 }
 
 func (h *OrderHandler) OrderRegisterRoutes(authorized *gin.RouterGroup, unauthorized *gin.RouterGroup) {
-	
+
 	publicOrders := unauthorized.Group("/orders")
 	{
 		publicOrders.POST("", h.Create)
 	}
+
 	protectedOrders := authorized.Group("/orders")
 	{
 		protectedOrders.GET("", h.List)
 		protectedOrders.GET("/:id", h.Get)
 		protectedOrders.DELETE("/:id", h.Delete)
 	}
-
-}
-
-func RegisterOrderRoutes(r *gin.Engine, h *OrderHandler) {
-
 }
 
 func (h *OrderHandler) Create(c *gin.Context) {
@@ -62,7 +56,21 @@ func (h *OrderHandler) Create(c *gin.Context) {
 }
 
 func (h *OrderHandler) List(c *gin.Context) {
-	orders, err := h.service.List()
+
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	orders, total, err := h.service.List(page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -70,13 +78,17 @@ func (h *OrderHandler) List(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, orders)
+	c.JSON(http.StatusOK, gin.H{
+		"orders": orders,
+		"page":   page,
+		"limit":  limit,
+		"total":  total,
+	})
 }
 
 func (h *OrderHandler) Get(c *gin.Context) {
-	idStr := c.Param("id")
 
-	id, err := strconv.Atoi(idStr)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "invalid id",
@@ -103,9 +115,8 @@ func (h *OrderHandler) Get(c *gin.Context) {
 }
 
 func (h *OrderHandler) Delete(c *gin.Context) {
-	idStr := c.Param("id")
 
-	id, err := strconv.Atoi(idStr)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "invalid id",

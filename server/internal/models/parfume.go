@@ -1,20 +1,23 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
+)
 
 type Parfume struct {
 	gorm.Model
 
-	Name             string   `json:"name" gorm:"not null"`
-	Description      string   `json:"description"`
-	Brand            string   `json:"brand"`
-	Category         string   `json:"category"`
-	Notes            []string `json:"notes" gorm:"type:jsonb"`
-	PricePerMl       int64    `json:"price_per_ml" gorm:"not null"`
-	AvailableVolumes []uint   `json:"available_volumes" gorm:"type:jsonb"`
-	ImageUrl         string   `json:"image_url"`
-	IsActive         bool     `json:"is_active" gorm:"default:true"`
-	Badge            string   `json:"badge"`
+	Name             string         `json:"name" gorm:"not null"`
+	Description      string         `json:"description"`
+	Brand            string         `json:"brand"`
+	Category         string         `json:"category"`
+	Notes            datatypes.JSON `json:"notes" gorm:"type:jsonb"`
+	PricePerMl       int64          `json:"price_per_ml" gorm:"not null"`
+	AvailableVolumes datatypes.JSON `json:"available_volumes" gorm:"type:jsonb"`
+	ImageUrl         string         `json:"image_url"`
+	IsActive         bool           `json:"is_active" gorm:"default:true"`
+	Badge            string         `json:"badge"`
 }
 
 type ParfumeCreate struct {

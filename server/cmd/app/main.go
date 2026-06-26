@@ -30,9 +30,13 @@ func main() {
 	orderRepo := repository.NewOrderRepository(db)
 	adminRepo := repository.NewAdminRepository(db)
 
-	yandexStorage := storage.NewYandexStorage(os.Getenv("YANDEX_TOKEN"))
-	
-	parfumeService := service.NewParfumeService(parfumeRepo, yandexStorage)
+	cloudStorage, err := storage.NewCloudinaryStorage(os.Getenv("CLOUD_NAME"), os.Getenv("API_KEY"), os.Getenv("API_SECRET"))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	parfumeService := service.NewParfumeService(parfumeRepo, cloudStorage)
 	orderService := service.NewOrderService(orderRepo, parfumeRepo)
 	adminService := service.NewAdminService(adminRepo)
 	authService := service.NewAuthService(adminRepo)

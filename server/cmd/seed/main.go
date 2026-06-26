@@ -9,21 +9,28 @@ import (
 	"nota-parfume/internal/models"
 
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/datatypes"
 )
 
 func main() {
 
 	db := config.SetUpDatabaseConnection()
+
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
 		log.Fatal("JWT_SECRET is not set")
 	}
 
-	if err := db.AutoMigrate(&models.Parfume{}, &models.Order{}, &models.OrderItem{}, &models.Admin{}); err != nil {
+	if err := db.AutoMigrate(
+		&models.Parfume{},
+		&models.Order{},
+		&models.OrderItem{},
+		&models.Admin{},
+	); err != nil {
 		log.Fatalf("не удалось выполнить миграции: %v", err)
 	}
 
-	// очищаем (только для разработки)
+	// очистка (только разработка)
 	db.Exec("DELETE FROM order_items")
 	db.Exec("DELETE FROM orders")
 	db.Exec("DELETE FROM parfumes")
@@ -62,18 +69,19 @@ func main() {
 			Description: "Fresh woody fragrance",
 			Brand:       "Chanel",
 			Category:    "Men",
-			Notes: []string{
-				"citrus",
-				"cedar",
-				"sandalwood",
-			},
+
+			Notes: datatypes.JSON(
+				[]byte(`["citrus","cedar","sandalwood"]`),
+			),
+
 			PricePerMl: 25,
-			AvailableVolumes: []uint{
-				30,
-				50,
-				100,
-			},
+
+			AvailableVolumes: datatypes.JSON(
+				[]byte(`[30,50,100]`),
+			),
+
 			ImageUrl: "https://example.com/bleu.jpg",
+
 			IsActive: true,
 			Badge:    "Bestseller",
 		},
@@ -83,17 +91,19 @@ func main() {
 			Description: "Aromatic fresh scent",
 			Brand:       "Dior",
 			Category:    "Men",
-			Notes: []string{
-				"bergamot",
-				"pepper",
-				"ambroxan",
-			},
+
+			Notes: datatypes.JSON(
+				[]byte(`["bergamot","pepper","ambroxan"]`),
+			),
+
 			PricePerMl: 18,
-			AvailableVolumes: []uint{
-				30,
-				100,
-			},
+
+			AvailableVolumes: datatypes.JSON(
+				[]byte(`[30,100]`),
+			),
+
 			ImageUrl: "https://example.com/sauvage.jpg",
+
 			IsActive: true,
 			Badge:    "Popular",
 		},
@@ -103,24 +113,29 @@ func main() {
 			Description: "Dark floral fragrance",
 			Brand:       "Tom Ford",
 			Category:    "Unisex",
-			Notes: []string{
-				"orchid",
-				"spices",
-				"patchouli",
-			},
+
+			Notes: datatypes.JSON(
+				[]byte(`["orchid","spices","patchouli"]`),
+			),
+
 			PricePerMl: 35,
-			AvailableVolumes: []uint{
-				50,
-				100,
-			},
+
+			AvailableVolumes: datatypes.JSON(
+				[]byte(`[50,100]`),
+			),
+
 			ImageUrl: "https://example.com/orchid.jpg",
+
 			IsActive: true,
 			Badge:    "Premium",
 		},
 	}
 
 	for _, p := range parfumes {
-		db.Create(&p)
+
+		if err := db.Create(&p).Error; err != nil {
+			panic(err)
+		}
 	}
 
 	// =====================
@@ -142,26 +157,32 @@ func main() {
 		Phone:           "+48111111111",
 		City:            "Warsaw",
 		DeliveryAddress: "Test street 1",
-		Status:          "new",
-		Comment:         "Call before delivery",
 
-		TotalPrice: 750,
+		Status:  "new",
+		Comment: "Call before delivery",
+
+		TotalPrice: bleu.PricePerMl * 30,
 
 		Items: []models.OrderItem{
 
 			{
 				ParfumeID: bleu.ID,
-				VolumeMl:  30,
-				Quantity:  1,
+
+				VolumeMl: 30,
+				Quantity: 1,
 
 				PricePerMl: bleu.PricePerMl,
-				UnitPrice:  bleu.PricePerMl * 30,
+
+				UnitPrice: bleu.PricePerMl * 30,
+
 				TotalPrice: bleu.PricePerMl * 30,
 			},
 		},
 	}
 
-	db.Create(&order)
+	if err := db.Create(&order).Error; err != nil {
+		panic(err)
+	}
 
 	fmt.Println("Seed completed")
 

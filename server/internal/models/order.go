@@ -4,6 +4,7 @@ import "gorm.io/gorm"
 
 type Order struct {
 	gorm.Model
+
 	CustomerName    string      `json:"customer_name" gorm:"not null"`
 	ContactMethod   uint        `json:"contact_method" gorm:"not null"` // 1: Telegram, 2: Instagram, 3: Phone
 	Phone           string      `json:"phone"`
@@ -15,14 +16,35 @@ type Order struct {
 	Items           []OrderItem `json:"items" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
+//
+// DTO (create request)
+//
+
 type OrderCreate struct {
-	CustomerName    string      `json:"customer_name" binding:"required" `
-	ContactMethod   uint        `json:"contact_method" binding:"required"` // 1: Telegram, 2: Instagram, 3: Phone
-	Phone           string      `json:"phone" binding:"required"`
-	City            string      `json:"city" binding:"required"`
-	DeliveryAddress string      `json:"delivery_address" binding:"required"`
-	Status          string      `json:"status" binding:"required" ` // new, confirmed, assembling, shipped, completed, cancelled
-	Comment         string      `json:"comment" binding:"required"`
-	TotalPrice      int64       `json:"total_price" binding:"required"`
-	Items           []OrderItem `json:"items" binding:"required"`
+	CustomerName    string            `json:"customer_name" binding:"required"`
+	ContactMethod   uint              `json:"contact_method" binding:"required"`
+	Phone           string            `json:"phone" binding:"required"`
+	City            string            `json:"city" binding:"required"`
+	DeliveryAddress string            `json:"delivery_address" binding:"required"`
+	Comment         string            `json:"comment"`
+	Items           []OrderItemCreate `json:"items" binding:"required"`
 }
+
+//
+// Enums (защита от мусора)
+//
+
+const (
+	ContactTelegram  uint = 1
+	ContactInstagram uint = 2
+	ContactPhone     uint = 3
+)
+
+const (
+	OrderStatusNew        = "new"
+	OrderStatusConfirmed  = "confirmed"
+	OrderStatusAssembling = "assembling"
+	OrderStatusShipped    = "shipped"
+	OrderStatusCompleted  = "completed"
+	OrderStatusCancelled  = "cancelled"
+)

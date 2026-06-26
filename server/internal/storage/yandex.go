@@ -10,17 +10,31 @@ type YandexStorage struct {
 }
 
 func NewYandexStorage(token string) *YandexStorage {
+
 	return &YandexStorage{
 		Token: token,
 	}
 }
 
 func (s *YandexStorage) Upload(file *multipart.FileHeader) (string, error) {
-	// пока заглушка
+
+	image, err := CompressImage(file)
+
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Println(
+		"compressed image size:",
+		image.Len(),
+	)
+
 	filename := file.Filename
 
-	// временно просто возвращаем "фейковую ссылку"
-	url := fmt.Sprintf("https://yandex.disk/%s", filename)
+	url := fmt.Sprintf(
+		"https://yandex.disk/%s",
+		filename,
+	)
 
 	return url, nil
 }

@@ -39,6 +39,54 @@ func (h *ParfumeHandler) ParfumeRegisterRoutes(authorized *gin.RouterGroup, unau
 
 }
 
+func (h *ParfumeHandler) GetAll(c *gin.Context) {
+
+	filter := models.ParfumeFilter{
+		Brand:    c.Query("brand"),
+		Category: c.Query("category"),
+		Search:   c.Query("search"),
+	}
+
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil {
+		page = 1
+	}
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if err != nil {
+		limit = 10
+	}
+
+	if page < 1 {
+		page = 1
+	}
+
+	if limit < 1 {
+		limit = 10
+	}
+
+	if limit > 50 {
+		limit = 50
+	}
+
+	parfumes, total, err := h.service.GetAll(
+		filter,
+		page,
+		limit,
+	)
+
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"parfumes": parfumes,
+		"page":     page,
+		"limit":    limit,
+		"total":    total,
+	})
+}
+
 // POST /parfumes
 func (h *ParfumeHandler) Create(c *gin.Context) {
 
@@ -177,52 +225,6 @@ func (h *ParfumeHandler) GetByID(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"parfume": parfume,
-	})
-}
-
-// GET /parfumes?limit=10&offset=0
-
-func (h *ParfumeHandler) GetAll(c *gin.Context) {
-
-	limit, err := strconv.Atoi(
-		c.DefaultQuery("limit", "10"),
-	)
-
-	if err != nil {
-
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid limit",
-		})
-
-		return
-	}
-
-	offset, err := strconv.Atoi(
-		c.DefaultQuery("offset", "0"),
-	)
-
-	if err != nil {
-
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid offset",
-		})
-
-		return
-	}
-
-	parfumes, err := h.service.GetAll(limit, offset)
-
-	if err != nil {
-
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "internal server error",
-		})
-
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"parfumes": parfumes,
 	})
 }
 

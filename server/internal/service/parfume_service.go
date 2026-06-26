@@ -1,12 +1,15 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"mime/multipart"
 
 	"nota-parfume/internal/models"
 	"nota-parfume/internal/repository"
 	"nota-parfume/internal/storage"
+
+	"gorm.io/datatypes"
 )
 
 var (
@@ -14,10 +17,14 @@ var (
 )
 
 type ParfumeService interface {
+	GetAll(
+		filter models.ParfumeFilter,
+		page int,
+		limit int,
+	) ([]models.Parfume, int64, error)
 	UploadImage(file *multipart.FileHeader) (string, error)
 	Create(input *models.ParfumeCreate, imageUrl string) (*models.Parfume, error)
 	GetByID(id uint) (*models.Parfume, error)
-	GetAll(limit, offset int) ([]models.Parfume, error)
 	Update(id uint, input *models.ParfumeUpdate) (*models.Parfume, error)
 	Delete(id uint) error
 }
@@ -40,14 +47,18 @@ func (s *parfumeService) UploadImage(file *multipart.FileHeader) (string, error)
 
 // CREATE
 func (s *parfumeService) Create(input *models.ParfumeCreate, imageUrl string) (*models.Parfume, error) {
+
+	notes, _ := json.Marshal(input.Notes)
+	volumes, _ := json.Marshal(input.AvailableVolumes)
+
 	parfume := &models.Parfume{
 		Name:             input.Name,
 		Description:      input.Description,
 		Brand:            input.Brand,
 		Category:         input.Category,
-		Notes:            input.Notes,
+		Notes:            datatypes.JSON(notes),
 		PricePerMl:       input.PricePerMl,
-		AvailableVolumes: input.AvailableVolumes,
+		AvailableVolumes: datatypes.JSON(volumes),
 		ImageUrl:         imageUrl,
 		Badge:            input.Badge,
 	}
@@ -85,10 +96,15 @@ func (s *parfumeService) GetByID(id uint) (*models.Parfume, error) {
 
 // GET ALL
 
-func (s *parfumeService) GetAll(limit, offset int) ([]models.Parfume, error) {
+func (s *parfumeService) GetAll(
+	filter models.ParfumeFilter,
+	page int,
+	limit int,
+) ([]models.Parfume, int64, error) {
 
-	return s.repo.GetAll(limit, offset)
+	offset := (page - 1) * limit
 
+	return s.repo.GetAll(filter, limit, offset)
 }
 
 // UPDATE
@@ -105,6 +121,9 @@ func (s *parfumeService) Update(id uint, input *models.ParfumeUpdate) (*models.P
 
 		return nil, err
 	}
+
+	notes, _ := json.Marshal(input.Notes)
+	volumes, _ := json.Marshal(input.AvailableVolumes)
 
 	if input.Name != "" {
 		parfume.Name = input.Name
@@ -123,7 +142,7 @@ func (s *parfumeService) Update(id uint, input *models.ParfumeUpdate) (*models.P
 	}
 
 	if input.Notes != nil {
-		parfume.Notes = input.Notes
+		parfume.Notes = datatypes.JSON(notes)
 	}
 
 	if input.PricePerMl != 0 {
@@ -131,7 +150,7 @@ func (s *parfumeService) Update(id uint, input *models.ParfumeUpdate) (*models.P
 	}
 
 	if input.AvailableVolumes != nil {
-		parfume.AvailableVolumes = input.AvailableVolumes
+		parfume.AvailableVolumes = datatypes.JSON(volumes)
 	}
 
 	if input.ImageUrl != "" {
